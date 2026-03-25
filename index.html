@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minimal Tracker</title>
+    <style>
+        :root {
+            --bg: #f8f9fa;
+            --text: #2d3436;
+            --accent: #0984e3;
+            --border: #dfe6e9;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 50px 20px;
+            margin: 0;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        h1 { font-weight: 300; letter-spacing: -1px; }
+
+        .status-box {
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+            border: 1px solid var(--border);
+            margin-bottom: 30px;
+        }
+
+        #timer {
+            font-size: 1.2rem;
+            color: var(--accent);
+            margin-top: 10px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        button {
+            background: var(--text);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: opacity 0.2s;
+        }
+
+        button:active { opacity: 0.8; }
+        button.out { background: #ff7675; }
+
+        .history {
+            width: 100%;
+            text-align: left;
+        }
+
+        .log-item {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+            border: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .date-label { color: #636e72; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Check-in System</h1>
+    
+    <div class="status-box">
+        <div id="status-text">Ready to start?</div>
+        <div id="timer">00:00:00</div>
+        <br>
+        <button id="actionBtn" onclick="toggleCheck()">Check In</button>
+    </div>
+
+    <div class="history" id="historyLog">
+        </div>
+</div>
+
+<script>
+    let startTime;
+    let timerInterval;
+    let logs = JSON.parse(localStorage.getItem('logs')) || [];
+
+    const actionBtn = document.getElementById('actionBtn');
+    const timerDisplay = document.getElementById('timer');
+    const statusText = document.getElementById('status-text');
+    const historyLog = document.getElementById('historyLog');
+
+    function updateTimer() {
+        const now = new Date();
+        const diff = new Date(now - startTime);
+        const h = String(diff.getUTCHours()).padStart(2, '0');
+        const m = String(diff.getUTCMinutes()).padStart(2, '0');
+        const s = String(diff.getUTCSeconds()).padStart(2, '0');
+        timerDisplay.innerText = `${h}:${m}:${s}`;
+    }
+
+    function toggleCheck() {
+        if (!startTime) {
+            // Check In
+            startTime = new Date();
+            statusText.innerText = "Checked in!";
+            actionBtn.innerText = "Check Out";
+            actionBtn.classList.add('out');
+            timerInterval = setInterval(updateTimer, 1000);
+        } else {
+            // Check Out
+            const endTime = new Date();
+            const duration = timerDisplay.innerText;
+            
+            saveLog(startTime, endTime, duration);
+            
+            // Reset UI
+            clearInterval(timerInterval);
+            startTime = null;
+            statusText.innerText = "Session Saved.";
+            timerDisplay.innerText = "00:00:00";
+            actionBtn.innerText = "Check In";
+            actionBtn.classList.remove('out');
+        }
+    }
+
+    function saveLog(start, end, duration) {
+        const logEntry = {
+            date: start.toLocaleDateString(),
+            timeIn: start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            timeOut: end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            duration: duration,
+            timestamp: end.getTime()
+        };
+
+        logs.unshift(logEntry);
+
+        // Filter for last 7 days only
+        const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+        logs = logs.filter(log => log.timestamp > sevenDaysAgo);
+
+        localStorage.setItem('logs', JSON.stringify(logs));
+        renderLogs();
+    }
+
+    function renderLogs() {
+        historyLog.innerHTML = '<p style="font-size: 0.8rem; color: #b2bec3;">LAST 7 DAYS</p>';
+        logs.forEach(log => {
+            historyLog.innerHTML += `
+                <div class="log-item">
+                    <div>
+                        <span class="date-label">${log.date}</span><br>
+                        ${log.timeIn} — ${log.timeOut}
+                    </div>
+                    <div style="font-weight: bold;">${log.duration}</div>
+                </div>
+            `;
+        });
+    }
+
+    renderLogs(); // Initial load
+</script>
+
+</body>
+</html>
